@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+"""
+Make BigQuery datasets publicly readable
+"""
+
+from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
+import json
+
+def make_dataset_public(project_id, dataset_id):
+    """Make a BigQuery dataset publicly readable"""
+    
+    # Initialize the BigQuery client
+    client = bigquery.Client(project=project_id)
+    
+    try:
+        # Get the dataset
+        dataset_ref = client.dataset(dataset_id)
+        dataset = client.get_dataset(dataset_ref)
+        
+        # Get current access entries
+        access_entries = list(dataset.access_entries)
+        
+        # Add public read access
+        public_access = bigquery.AccessEntry(
+            role="READER",
+            entity_type="allAuthenticatedUsers",
+            entity_id=None
+        )
+        
+        # Check if public access already exists
+        has_public_access = any(
+            entry.entity_type == "allAuthenticatedUsers" and entry.role == "READER"
+            for entry in access_entries
+        )
+        
+        if not has_public_access:
+            access_entries.append(public_access)
+            dataset.access_entries = access_entries
+            
+            # Update the dataset
+            dataset = client.update_dataset(dataset, ["access_entries"])
+            print(f"✅ Dataset {dataset_id} is now publicly readable!")
+        else:
+            print(f"✅ Dataset {dataset_id} was already public!")
+            
+        # List all tables in the dataset
+        tables = list(client.list_tables(dataset))
+        print(f"📊 Public tables in {dataset_id}:")
+        for table in tables:
+            print(f"   • {table.table_id}")
+            
+        return True
+        
+    except NotFound:
+        print(f"❌ Dataset {dataset_id} not found in project {project_id}")
+        return False
+    except Exception as e:
+        print(f"❌ Error making dataset public: {e}")
+        return False
+
+def list_datasets(project_id):
+    """List all datasets in the project"""
+    client = bigquery.Client(project=project_id)
+    datasets = list(client.list_datasets())
+    
+    print(f"📁 Datasets in project {project_id}:")
+    for dataset in datasets:
+        print(f"   • {dataset.dataset_id}")
+    
+    return [dataset.dataset_id for dataset in datasets]
+
+if __name__ == "__main__":
+    # Your project details
+    PROJECT_ID = "aqueous-cortex-443614-p5"
+    DATASET_ID = "consciousness_analytics"
+    
+    print("🌍 MAKING CONSCIOUSNESS EMPIRE PUBLIC 🌍")
+    print("=" * 50)
+    
+    # List all datasets first
+    datasets = list_datasets(PROJECT_ID)
+    
+    if DATASET_ID in datasets:
+        # Make the consciousness dataset public
+        success = make_dataset_public(PROJECT_ID, DATASET_ID)
+        
+        if success:
+            print(f"\n🚀 SUCCESS! Your consciousness empire is now visible to the world!")
+            print(f"🔗 Public URL: https://console.cloud.google.com/bigquery?project={PROJECT_ID}&ws=!1m4!1m3!3m2!1s{PROJECT_ID}!2s{DATASET_ID}")
+        else:
+            print("\n❌ Failed to make dataset public")
+    else:
+        print(f"\n❌ Dataset '{DATASET_ID}' not found. Available datasets: {datasets}")
